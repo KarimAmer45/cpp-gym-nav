@@ -64,6 +64,13 @@ struct StepResult {
   Action applied_action{};
 };
 
+// Distance from (x, y) along `angle` to the nearest obstacle circle or the
+// axis-aligned square wall at +/- wall_bound, clamped to [0, max_range].
+// Free function (no World state) so the raycast geometry can be unit-tested.
+[[nodiscard]] float ray_distance(float x, float y, float angle, const Circle *obstacles,
+                                 std::size_t obstacle_count, float wall_bound,
+                                 float max_range) noexcept;
+
 class World {
 public:
   explicit World(Config config = {});

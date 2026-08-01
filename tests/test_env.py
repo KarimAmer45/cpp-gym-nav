@@ -114,3 +114,38 @@ def test_native_batch_contract_and_replay() -> None:
     assert result_a["observations"].shape == (4, 22)
     for key in ("observations", "rewards", "successes", "collisions"):
         np.testing.assert_array_equal(result_a[key], result_b[key])
+
+
+def test_reward_matches_potential_shaping_decomposition() -> None:
+    # reward = 2*(old_dist - new_dist) - 0.01 (step) - 0.005 * effort, plus terminal
+    # bonuses. Verifying the decomposition per step proves the progress term is a
+    # telescoping potential, so a path that returns to the same distance-to-goal
+    # cannot farm net progress reward (the anti-reward-hacking property).
+    env = NavEnv()
+    _, info = env.reset(seed=17)
+    max_lin = env._core_config.max_linear_speed
+    max_ang = env._core_config.max_angular_speed
+    prev_dist = dist_start = info["distance_to_goal"]
+    progress_sum = 0.0
+    steps = 0
+    actions = [
+        np.array([0.6, 0.3], dtype=np.float32),
+        np.array([0.5, -0.4], dtype=np.float32),
+        np.array([-0.5, 0.2], dtype=np.float32),
+        np.array([-0.4, -0.3], dtype=np.float32),
+    ]
+    for action in actions:
+        _, reward, terminated, _, info = env.step(action)
+        if terminated:  # a goal/collision adds a terminal bonus outside this decomposition
+            break
+        lin, ang = info["applied_action"]
+        effort = 0.5 * (abs(lin) / max_lin + abs(ang) / max_ang)
+        new_dist = info["distance_to_goal"]
+        expected = 2.0 * (prev_dist - new_dist) - 0.01 - 0.005 * effort
+        assert abs(reward - expected) < 1e-3, (reward, expected)
+        progress_sum += 2.0 * (prev_dist - new_dist)
+        prev_dist = new_dist
+        steps += 1
+    assert steps >= 2, "expected several non-terminal steps to validate the decomposition"
+    # The progress terms telescope to 2 * (start_distance - final_distance).
+    assert abs(progress_sum - 2.0 * (dist_start - prev_dist)) < 1e-4

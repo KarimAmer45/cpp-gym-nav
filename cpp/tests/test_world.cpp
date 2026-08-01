@@ -60,6 +60,18 @@ int main() {
   const auto delayed_step = delayed.step({1.0F, 0.0F});
   require(delayed_step.applied_action.linear == 0.0F, "one-step delay must initially apply zero");
 
+  // Raycast geometry against known scenes, independent of the randomized layout.
+  const float pi = 3.14159265358979F;
+  const nav::Circle ahead{2.0F, 0.0F, 0.5F};
+  require(std::abs(nav::ray_distance(0.0F, 0.0F, 0.0F, &ahead, 1U, 100.0F, 5.0F) - 1.5F) < 1.0e-4F,
+          "beam must hit the obstacle surface at range 1.5");
+  require(std::abs(nav::ray_distance(0.0F, 0.0F, pi, &ahead, 1U, 3.0F, 5.0F) - 3.0F) < 1.0e-4F,
+          "beam pointing away from the obstacle must reach the wall");
+  require(std::abs(nav::ray_distance(0.0F, 0.0F, 0.0F, nullptr, 0U, 2.5F, 5.0F) - 2.5F) < 1.0e-4F,
+          "empty scene must return the wall distance");
+  require(std::abs(nav::ray_distance(0.0F, 0.0F, 0.0F, nullptr, 0U, 100.0F, 5.0F) - 5.0F) < 1.0e-4F,
+          "distant scene must clamp to the sensor max range");
+
   std::cout << "All nav_core tests passed\n";
   return EXIT_SUCCESS;
 }

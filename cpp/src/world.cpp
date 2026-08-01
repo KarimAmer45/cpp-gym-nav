@@ -172,32 +172,33 @@ const StepResult &World::step(Action action) {
   return result_;
 }
 
-float World::raycast(float angle) const noexcept {
+float ray_distance(float x, float y, float angle, const Circle *obstacles,
+                   std::size_t obstacle_count, float wall_bound, float max_range) noexcept {
   const float dx = std::cos(angle);
   const float dy = std::sin(angle);
-  float distance = config_.lidar_max_range;
-  const float bound = config_.arena_half_extent - config_.robot_radius;
+  float distance = max_range;
 
   if (std::abs(dx) > kEpsilon) {
-    const float tx1 = (bound - pose_.x) / dx;
-    const float tx2 = (-bound - pose_.x) / dx;
+    const float tx1 = (wall_bound - x) / dx;
+    const float tx2 = (-wall_bound - x) / dx;
     if (tx1 > 0.0F)
       distance = std::min(distance, tx1);
     if (tx2 > 0.0F)
       distance = std::min(distance, tx2);
   }
   if (std::abs(dy) > kEpsilon) {
-    const float ty1 = (bound - pose_.y) / dy;
-    const float ty2 = (-bound - pose_.y) / dy;
+    const float ty1 = (wall_bound - y) / dy;
+    const float ty2 = (-wall_bound - y) / dy;
     if (ty1 > 0.0F)
       distance = std::min(distance, ty1);
     if (ty2 > 0.0F)
       distance = std::min(distance, ty2);
   }
 
-  for (const auto &obstacle : obstacles_) {
-    const float ox = pose_.x - obstacle.x;
-    const float oy = pose_.y - obstacle.y;
+  for (std::size_t i = 0; i < obstacle_count; ++i) {
+    const Circle &obstacle = obstacles[i];
+    const float ox = x - obstacle.x;
+    const float oy = y - obstacle.y;
     const float b = ox * dx + oy * dy;
     const float c = ox * ox + oy * oy - obstacle.radius * obstacle.radius;
     const float discriminant = b * b - c;
@@ -210,7 +211,12 @@ float World::raycast(float angle) const noexcept {
     if (hit > 0.0F)
       distance = std::min(distance, hit);
   }
-  return clamp(distance, 0.0F, config_.lidar_max_range);
+  return std::max(0.0F, std::min(distance, max_range));
+}
+
+float World::raycast(float angle) const noexcept {
+  return ray_distance(pose_.x, pose_.y, angle, obstacles_.data(), obstacles_.size(),
+                      config_.arena_half_extent - config_.robot_radius, config_.lidar_max_range);
 }
 
 void World::fill_observation() {
