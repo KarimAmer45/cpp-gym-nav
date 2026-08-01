@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[test]"
+      - run: python -m pytest
+      - run: python scripts/run_cpp_tests.py
+      - run: python train/benchmark.py --steps 10000
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pybind11
+      - run: >-
+          cmake -S . -B build/sanitized
+          -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
+          -DCPP_GYM_NAV_ENABLE_SANITIZERS=ON
+          -DCPP_GYM_NAV_BUILD_BENCHMARK=OFF
+          -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build/sanitized --parallel
+      - run: ctest --test-dir build/sanitized --output-on-failure
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install ruff
+      - run: ruff check python tests train scripts
+      - run: ruff format --check python tests train scripts
+
