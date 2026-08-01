@@ -1,0 +1,35 @@
+{
+  "measured_at": "2026-08-01",
+  "system": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13",
+    "compiler": "Zig Clang 21.1.0",
+    "processor": "Intel64 Family 6 Model 165 Stepping 5, 10 logical processors"
+  },
+  "results": [
+    {
+      "configuration": "Gymnasium wrapper, single environment",
+      "steps": 100000,
+      "steps_per_second": 19268.32839042905,
+      "mean_step_us": 37.948509,
+      "p50_step_us": 37.4,
+      "p95_step_us": 39.4
+    },
+    {
+      "configuration": "Gymnasium SyncVectorEnv, 16 environments",
+      "steps": 100000,
+      "steps_per_second": 21110.08523133582,
+      "mean_step_us": 46.184744,
+      "p50_step_us": 45.84375,
+      "p95_step_us": 48.8375
+    },
+    {
+      "configuration": "Native C++ batch, 16 environments",
+      "steps": 100000,
+      "steps_per_second": 860915.6354332214,
+      "mean_step_us": 0.7098369999999999,
+      "p50_step_us": 0.7,
+      "p95_step_us": 0.775
+    }
+  ]
+}

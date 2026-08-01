@@ -1,0 +1,27 @@
+{
+  "training_steps": 200000,
+  "training_wall_seconds": 117.08321139999316,
+  "evaluation_seed_start": 105951,
+  "realism": true,
+  "ppo": {
+    "episodes": 100,
+    "success_rate": 0.33,
+    "collision_rate": 0.38,
+    "mean_return": 5.052656785052667,
+    "mean_episode_length": 143.11
+  },
+  "random": {
+    "episodes": 100,
+    "success_rate": 0.0,
+    "collision_rate": 0.63,
+    "mean_return": -8.899006210370244,
+    "mean_episode_length": 194.1
+  },
+  "ppo_clean_transfer": {
+    "episodes": 100,
+    "success_rate": 0.35,
+    "collision_rate": 0.46,
+    "mean_return": 3.1082053325792547,
+    "mean_episode_length": 129.65
+  }
+}

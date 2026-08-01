@@ -1,0 +1,20 @@
+{
+  "training_steps": 200000,
+  "training_wall_seconds": 117.3756357000093,
+  "evaluation_seed_start": 105951,
+  "realism": false,
+  "ppo": {
+    "episodes": 100,
+    "success_rate": 0.72,
+    "collision_rate": 0.14,
+    "mean_return": 14.167928829256198,
+    "mean_episode_length": 94.48
+  },
+  "random": {
+    "episodes": 100,
+    "success_rate": 0.0,
+    "collision_rate": 0.52,
+    "mean_return": -8.25077835179823,
+    "mean_episode_length": 209.19
+  }
+}
