@@ -23,9 +23,39 @@ The native C++ microbenchmark separately measured 2,607,250 steps/s (383.5 ns/st
 steps. That gap identified Python crossings and wrapper bookkeeping as the dominant cost. The native
 batch then raised Python-visible aggregate throughput by 44.7x relative to one Gymnasium environment.
 
-The native batch result is a core-throughput measurement, not an end-to-end SB3 training result. It
-does not include Gymnasium time-limit bookkeeping and resets the full batch whenever any world reaches
-a terminal state. A custom SB3 `VecEnv` adapter and train-to-target comparison are the next experiment.
+The native batch result above is a core-throughput measurement, not an end-to-end SB3 training result.
+It does not include Gymnasium time-limit bookkeeping and resets the full batch whenever any world
+reaches a terminal state. The section below wires it into training.
+
+## Training throughput: native vectorization
+
+Command:
+
+```bash
+python train/benchmark.py --training
+```
+
+Raw environment throughput is not the same as faster RL. A custom SB3 `VecEnv` (`BatchWorldVecEnv`)
+advances all 16 worlds in one GIL-released C++ call, and `train_ppo.py --native-vec 16` trains on it.
+The same PPO recipe was trained three ways for 20k steps, with throughput measured over the steps SB3
+actually collected:
+
+| Training backend | Train steps/s | Speedup vs single |
+|---|---:|---:|
+| single Gymnasium env | 1,722 | 1.00x |
+| SB3 `DummyVecEnv`, 16 envs (Python loop) | 5,602 | 3.25x |
+| Native `BatchWorldVecEnv`, 16 envs | **7,518** | **4.37x** |
+
+For a 200k-step run that is roughly 116 s down to 27 s of wall-clock. Two caveats a reviewer should
+hear stated up front:
+
+- About 3.25x of the speedup is generic vectorization (batched policy updates and amortized Python
+  overhead) that any `VecEnv` provides. The native batched step contributes the remaining ~1.34x over
+  SB3's Python-loop `DummyVecEnv`.
+- The 44.7x raw-environment figure does not carry over to training. The policy update, not environment
+  stepping, is the bottleneck here: raising lidar from 16 to 64 beams left training throughput
+  essentially unchanged. The batched step matters most when the environment is expensive enough to
+  dominate the loop.
 
 ## PPO versus random
 

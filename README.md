@@ -34,6 +34,11 @@ Native batching advances all 16 worlds per Python crossing and yields 44.7x the 
 aggregate throughput. These are honest wall-clock results from this checkout, not portable promises;
 see [docs/benchmarks.md](docs/benchmarks.md) for the method and machine metadata.
 
+Wired into PPO through a custom Stable-Baselines3 `VecEnv` (`train_ppo.py --native-vec 16`), the batched
+step trains **4.4x** faster than the single-environment setup (200k steps: ~116 s down to ~27 s). About
+1.3x of that is the native batch over a standard Python-loop `VecEnv` -- the policy update, not the
+environment, is the training bottleneck. Reproduce with `python train/benchmark.py --training`.
+
 ## Quick start
 
 Requirements: Python 3.11+, CMake 3.24+, and a C++17 compiler.

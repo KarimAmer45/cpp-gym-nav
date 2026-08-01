@@ -10,11 +10,12 @@ from pathlib import Path
 import cpp_gym_nav
 import gymnasium as gym
 import numpy as np
-from cpp_gym_nav import NavEnvConfig
+from cpp_gym_nav import BatchWorldVecEnv, NavEnvConfig
 from matplotlib.figure import Figure
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import VecMonitor
 
 
 class EpisodeMetrics(BaseCallback):
@@ -78,9 +79,18 @@ def main() -> None:
     parser.add_argument("--eval-episodes", type=int, default=100)
     parser.add_argument("--output-dir", type=Path, default=Path("assets/generated"))
     parser.add_argument("--realism", action="store_true")
+    parser.add_argument(
+        "--native-vec",
+        type=int,
+        default=0,
+        metavar="N",
+        help="train on N environments stepped together in C++ (0 = single Gymnasium env)",
+    )
     args = parser.parse_args()
     if args.steps <= 0 or args.eval_episodes <= 0:
         parser.error("--steps and --eval-episodes must be positive")
+    if args.native_vec < 0:
+        parser.error("--native-vec must be non-negative")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     config = NavEnvConfig(
@@ -89,7 +99,17 @@ def main() -> None:
         action_delay=args.realism,
         dynamics_randomization=args.realism,
     )
-    env = Monitor(gym.make(cpp_gym_nav.ENV_ID, config=config))
+    if args.native_vec > 0:
+        env = VecMonitor(
+            BatchWorldVecEnv(
+                args.native_vec,
+                config=config,
+                max_episode_steps=config.max_episode_steps,
+                seed=args.seed,
+            )
+        )
+    else:
+        env = Monitor(gym.make(cpp_gym_nav.ENV_ID, config=config))
     callback = EpisodeMetrics()
     model = PPO(
         "MlpPolicy",
@@ -110,8 +130,11 @@ def main() -> None:
 
     evaluation_seed = args.seed + 100_000
     metrics = {
-        "training_steps": args.steps,
+        "requested_training_steps": args.steps,
+        "training_steps": model.num_timesteps,
         "training_wall_seconds": training_wall_seconds,
+        "training_steps_per_second": model.num_timesteps / training_wall_seconds,
+        "native_vec_envs": args.native_vec,
         "evaluation_seed_start": evaluation_seed,
         "realism": args.realism,
         "ppo": evaluate(model, args.eval_episodes, evaluation_seed, config),

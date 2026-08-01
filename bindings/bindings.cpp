@@ -188,6 +188,20 @@ PYBIND11_MODULE(_core, module) {
              output["collisions"] = std::move(collisions);
              return output;
            })
+      .def("reset_at",
+           [](BatchWorld &batch, std::size_t index, std::uint64_t seed) {
+             if (index >= batch.size()) {
+               throw std::out_of_range("index must be < count");
+             }
+             py::array_t<float> observation(static_cast<py::ssize_t>(batch.observation_size()));
+             auto *output = observation.mutable_data();
+             {
+               py::gil_scoped_release release;
+               const auto &values = batch.world(index).reset(seed);
+               std::memcpy(output, values.data(), values.size() * sizeof(float));
+             }
+             return observation;
+           })
       .def_property_readonly("count", &BatchWorld::size)
       .def_property_readonly("observation_size", &BatchWorld::observation_size);
 }
