@@ -28,6 +28,7 @@ train = [
 test = [
   "pytest>=8,<10",
   "stable-baselines3>=2.4,<3",
+  "pybind11>=2.13,<4",
 ]
 dev = [
   "stable-baselines3>=2.4,<3",
@@ -36,6 +37,7 @@ dev = [
   "imageio>=2.34,<3",
   "pytest>=8,<10",
   "ruff>=0.9,<1",
+  "pybind11>=2.13,<4",
 ]
 
 [tool.scikit-build]
