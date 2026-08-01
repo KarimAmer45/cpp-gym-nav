@@ -1,5 +1,7 @@
 # cpp-gym-nav
 
+[![ci](https://github.com/KarimAmer45/cpp-gym-nav/actions/workflows/ci.yml/badge.svg)](https://github.com/KarimAmer45/cpp-gym-nav/actions/workflows/ci.yml)
+
 A deterministic mobile-robot navigation simulator written in C++17, exposed to Python with
 pybind11, and packaged as a standards-compliant Gymnasium environment. It is an intentionally small
 portfolio environment for studying simulator correctness, reinforcement learning, performance, and
