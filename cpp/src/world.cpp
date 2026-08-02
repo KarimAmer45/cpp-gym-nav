@@ -34,6 +34,36 @@ float World::clamp(float value, float lower, float upper) noexcept {
 float World::wrap_angle(float angle) noexcept { return std::remainder(angle, 2.0F * kPi); }
 
 void World::reset_obstacles() {
+  if (config_.random_obstacles) {
+    const float limit = config_.arena_half_extent - 1.0F;
+    std::uniform_real_distribution<float> position(-limit, limit);
+    std::uniform_real_distribution<float> radius(0.45F, 0.70F);
+    std::size_t placed = 0;
+    for (int attempt = 0; attempt < 4000 && placed < kObstacleCount; ++attempt) {
+      const Circle candidate{position(rng_), position(rng_), radius(rng_)};
+      bool overlaps = false;
+      for (std::size_t i = 0; i < placed; ++i) {
+        const float dx = candidate.x - obstacles_[i].x;
+        const float dy = candidate.y - obstacles_[i].y;
+        const float min_gap = candidate.radius + obstacles_[i].radius + 0.4F;
+        if (dx * dx + dy * dy < min_gap * min_gap) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) {
+        obstacles_[placed++] = candidate;
+      }
+    }
+    // Any slot we could not place (extremely rare) becomes a far-away no-op circle.
+    const float far = 10.0F * config_.arena_half_extent;
+    for (std::size_t i = placed; i < kObstacleCount; ++i) {
+      obstacles_[i] = Circle{far, far, 0.0F};
+    }
+    return;
+  }
+
+  // Fixed reference map, optionally jittered by domain randomization.
   const float jitter = config_.dynamics_randomization ? 0.35F : 0.0F;
   const auto j = [this, jitter]() { return jitter * (2.0F * uniform_(rng_) - 1.0F); };
   obstacles_ = {{{-1.7F + j(), -0.8F + j(), 0.65F},

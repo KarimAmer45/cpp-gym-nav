@@ -38,6 +38,7 @@ struct Config {
   float goal_radius{0.35F};
   float lidar_max_range{5.0F};
   std::size_t lidar_beams{16};
+  bool random_obstacles{true};
 
   bool sensor_noise{false};
   float lidar_noise_std{0.02F};

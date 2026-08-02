@@ -18,6 +18,7 @@ class NavEnvConfig:
 
     lidar_beams: int = 16
     max_episode_steps: int = 300
+    random_obstacles: bool = True
     sensor_noise: bool = False
     actuator_limits: bool = False
     action_delay: bool = False
@@ -27,6 +28,7 @@ class NavEnvConfig:
     def to_core(self) -> _core.Config:
         config = _core.Config()
         config.lidar_beams = self.lidar_beams
+        config.random_obstacles = self.random_obstacles
         config.sensor_noise = self.sensor_noise
         config.actuator_limits = self.actuator_limits
         config.action_delay = self.action_delay

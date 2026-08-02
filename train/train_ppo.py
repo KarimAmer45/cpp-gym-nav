@@ -80,6 +80,11 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("assets/generated"))
     parser.add_argument("--realism", action="store_true")
     parser.add_argument(
+        "--fixed-obstacles",
+        action="store_true",
+        help="use the fixed reference obstacle map instead of per-episode random layouts",
+    )
+    parser.add_argument(
         "--native-vec",
         type=int,
         default=0,
@@ -94,6 +99,7 @@ def main() -> None:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     config = NavEnvConfig(
+        random_obstacles=not args.fixed_obstacles,
         sensor_noise=args.realism,
         actuator_limits=args.realism,
         action_delay=args.realism,
@@ -135,6 +141,7 @@ def main() -> None:
         "training_wall_seconds": training_wall_seconds,
         "training_steps_per_second": model.num_timesteps / training_wall_seconds,
         "native_vec_envs": args.native_vec,
+        "random_obstacles": config.random_obstacles,
         "evaluation_seed_start": evaluation_seed,
         "realism": args.realism,
         "ppo": evaluate(model, args.eval_episodes, evaluation_seed, config),

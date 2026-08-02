@@ -67,6 +67,7 @@ PYBIND11_MODULE(_core, module) {
       .def_readwrite("goal_radius", &nav::Config::goal_radius)
       .def_readwrite("lidar_max_range", &nav::Config::lidar_max_range)
       .def_readwrite("lidar_beams", &nav::Config::lidar_beams)
+      .def_readwrite("random_obstacles", &nav::Config::random_obstacles)
       .def_readwrite("sensor_noise", &nav::Config::sensor_noise)
       .def_readwrite("lidar_noise_std", &nav::Config::lidar_noise_std)
       .def_readwrite("lidar_dropout_probability", &nav::Config::lidar_dropout_probability)

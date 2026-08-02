@@ -53,6 +53,28 @@ def test_action_delay_defers_command() -> None:
     np.testing.assert_allclose(second["applied_action"], [1.25, 1.0])
 
 
+def test_random_obstacles_vary_by_seed_and_replay() -> None:
+    def layout(seed: int) -> list[tuple[float, float, float]]:
+        env = NavEnv()
+        env.reset(seed=seed)
+        return list(env._world.obstacles)
+
+    assert layout(1) != layout(2)  # different seeds produce different layouts
+    np.testing.assert_array_equal(layout(1), layout(1))  # same seed replays exactly
+
+
+def test_fixed_obstacles_reproduce_the_reference_map() -> None:
+    env = NavEnv(config=NavEnvConfig(random_obstacles=False))
+    env.reset(seed=0)
+    obstacles = list(env._world.obstacles)
+    # Seed-independent reference layout when random_obstacles is off (no DR jitter).
+    np.testing.assert_allclose(obstacles[0], (-1.7, -0.8, 0.65), atol=1e-5)
+    np.testing.assert_allclose(obstacles[4], (2.7, 2.4, 0.50), atol=1e-5)
+    env2 = NavEnv(config=NavEnvConfig(random_obstacles=False))
+    env2.reset(seed=999)
+    np.testing.assert_array_equal(list(env2._world.obstacles), obstacles)
+
+
 def test_domain_randomization_is_reproducible() -> None:
     randomized = NavEnvConfig(dynamics_randomization=True)
     first = rollout(randomized, seed=123)
