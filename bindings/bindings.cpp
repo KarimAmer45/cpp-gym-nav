@@ -91,25 +91,28 @@ PYBIND11_MODULE(_core, module) {
              }
              return as_array(observation);
            })
-      .def("step",
-           [](nav::World &world,
-              const py::array_t<float, py::array::c_style | py::array::forcecast> &input) {
-             const nav::Action action = parse_action(input);
-             nav::StepResult result;
-             {
-               py::gil_scoped_release release;
-               result = world.step(action);
-             }
-             py::dict output;
-             output["observation"] = as_array(result.observation);
-             output["reward"] = result.reward;
-             output["success"] = result.success;
-             output["collision"] = result.collision;
-             output["distance_to_goal"] = result.distance_to_goal;
-             output["applied_action"] =
-                 py::make_tuple(result.applied_action.linear, result.applied_action.angular);
-             return output;
-           })
+      .def(
+          "step",
+          [](nav::World &world,
+             const py::array_t<float, py::array::c_style | py::array::forcecast> &input) {
+            const nav::Action action = parse_action(input);
+            nav::StepResult result;
+            {
+              py::gil_scoped_release release;
+              result = world.step(action);
+            }
+            py::dict output;
+            output["observation"] = as_array(result.observation);
+            output["reward"] = result.reward;
+            output["success"] = result.success;
+            output["collision"] = result.collision;
+            output["distance_to_goal"] = result.distance_to_goal;
+            output["applied_action"] =
+                py::make_tuple(result.applied_action.linear, result.applied_action.angular);
+            return output;
+          },
+          "Advance one step. `action` is [linear, angular] in physical units, clamped to the\n"
+          "configured speed limits (contrast BatchWorld.step, which takes normalized actions).")
       .def_property_readonly("observation_size", &nav::World::observation_size)
       .def_property_readonly("seed", &nav::World::seed)
       .def_property_readonly("pose",
@@ -148,61 +151,66 @@ PYBIND11_MODULE(_core, module) {
              }
              return observations;
            })
-      .def("step",
-           [](BatchWorld &batch,
-              const py::array_t<float, py::array::c_style | py::array::forcecast> &actions) {
-             const auto input = actions.request();
-             if (input.ndim != 2 || input.shape[0] != static_cast<py::ssize_t>(batch.size()) ||
-                 input.shape[1] != 2) {
-               throw std::invalid_argument("actions must have shape (count, 2)");
-             }
-             const auto *action_values = static_cast<const float *>(input.ptr);
-             py::array_t<float> observations({static_cast<py::ssize_t>(batch.size()),
-                                              static_cast<py::ssize_t>(batch.observation_size())});
-             py::array_t<float> rewards(batch.size());
-             py::array_t<bool> successes(batch.size());
-             py::array_t<bool> collisions(batch.size());
-             auto *observation_values = observations.mutable_data();
-             auto *reward_values = rewards.mutable_data();
-             auto *success_values = successes.mutable_data();
-             auto *collision_values = collisions.mutable_data();
-             const auto &config = batch.config();
-             {
-               py::gil_scoped_release release;
-               for (std::size_t i = 0; i < batch.size(); ++i) {
-                 const nav::Action action{
-                     action_values[2U * i] * config.max_linear_speed,
-                     action_values[2U * i + 1U] * config.max_angular_speed,
-                 };
-                 const auto &result = batch.world(i).step(action);
-                 std::memcpy(observation_values + i * batch.observation_size(),
-                             result.observation.data(), result.observation.size() * sizeof(float));
-                 reward_values[i] = result.reward;
-                 success_values[i] = result.success;
-                 collision_values[i] = result.collision;
-               }
-             }
-             py::dict output;
-             output["observations"] = std::move(observations);
-             output["rewards"] = std::move(rewards);
-             output["successes"] = std::move(successes);
-             output["collisions"] = std::move(collisions);
-             return output;
-           })
-      .def("reset_at",
-           [](BatchWorld &batch, std::size_t index, std::uint64_t seed) {
-             if (index >= batch.size()) {
-               throw std::out_of_range("index must be < count");
-             }
-             py::array_t<float> observation(static_cast<py::ssize_t>(batch.observation_size()));
-             auto *output = observation.mutable_data();
-             {
-               py::gil_scoped_release release;
-               const auto &values = batch.world(index).reset(seed);
-               std::memcpy(output, values.data(), values.size() * sizeof(float));
-             }
-             return observation;
-           })
+      .def(
+          "step",
+          [](BatchWorld &batch,
+             const py::array_t<float, py::array::c_style | py::array::forcecast> &actions) {
+            const auto input = actions.request();
+            if (input.ndim != 2 || input.shape[0] != static_cast<py::ssize_t>(batch.size()) ||
+                input.shape[1] != 2) {
+              throw std::invalid_argument("actions must have shape (count, 2)");
+            }
+            const auto *action_values = static_cast<const float *>(input.ptr);
+            py::array_t<float> observations({static_cast<py::ssize_t>(batch.size()),
+                                             static_cast<py::ssize_t>(batch.observation_size())});
+            py::array_t<float> rewards(batch.size());
+            py::array_t<bool> successes(batch.size());
+            py::array_t<bool> collisions(batch.size());
+            auto *observation_values = observations.mutable_data();
+            auto *reward_values = rewards.mutable_data();
+            auto *success_values = successes.mutable_data();
+            auto *collision_values = collisions.mutable_data();
+            const auto &config = batch.config();
+            {
+              py::gil_scoped_release release;
+              for (std::size_t i = 0; i < batch.size(); ++i) {
+                const nav::Action action{
+                    action_values[2U * i] * config.max_linear_speed,
+                    action_values[2U * i + 1U] * config.max_angular_speed,
+                };
+                const auto &result = batch.world(i).step(action);
+                std::memcpy(observation_values + i * batch.observation_size(),
+                            result.observation.data(), result.observation.size() * sizeof(float));
+                reward_values[i] = result.reward;
+                success_values[i] = result.success;
+                collision_values[i] = result.collision;
+              }
+            }
+            py::dict output;
+            output["observations"] = std::move(observations);
+            output["rewards"] = std::move(rewards);
+            output["successes"] = std::move(successes);
+            output["collisions"] = std::move(collisions);
+            return output;
+          },
+          "Advance all worlds one step. `actions` has shape (count, 2), normalized to [-1, 1]\n"
+          "and scaled internally to the speed limits (contrast World.step, physical units).")
+      .def(
+          "reset_at",
+          [](BatchWorld &batch, std::size_t index, std::uint64_t seed) {
+            if (index >= batch.size()) {
+              throw std::out_of_range("index must be < count");
+            }
+            py::array_t<float> observation(static_cast<py::ssize_t>(batch.observation_size()));
+            auto *output = observation.mutable_data();
+            {
+              py::gil_scoped_release release;
+              const auto &values = batch.world(index).reset(seed);
+              std::memcpy(output, values.data(), values.size() * sizeof(float));
+            }
+            return observation;
+          },
+          "Reset one world by index with the given seed and return its observation.")
       .def_property_readonly("count", &BatchWorld::size)
       .def_property_readonly("observation_size", &BatchWorld::observation_size);
 }

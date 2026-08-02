@@ -13,6 +13,18 @@ matches mobile-robot controllers and avoids imposing an arbitrary discrete motio
 observation uses robot-frame goal features so the policy does not need to learn rotational
 invariance. All values are finite `float32` in `[-1, 1]`; lidar is normalized by maximum range.
 
+The policy-facing action is normalized `[-1, 1]`. Two core entry points differ deliberately and are
+documented in their bindings: `World.step` takes physical-unit actions (it is the single-world
+primitive), while `BatchWorld.step` takes normalized actions and scales them, because it is driven by
+the RL policy through the vectorized adapter. The Gymnasium wrapper always presents the normalized form.
+
+## Kinematics integration
+
+The unicycle model uses semi-implicit (symplectic) Euler: the heading is advanced first and the body
+then translates along the updated heading. This is the standard choice for differential-drive
+kinematics and is more stable than explicit Euler, which would translate along the stale pre-rotation
+heading and bias curved motion.
+
 ## Reward and termination
 
 The dense term is the one-step decrease in Euclidean goal distance. It is potential-based: returning
@@ -41,8 +53,12 @@ buffer would let a later step silently mutate an observation retained by an RL r
 
 `SyncVectorEnv` provides a compatibility baseline but does not remove Python crossings. The native
 `BatchWorld` advances K preallocated worlds per binding call and returns contiguous NumPy arrays. It
-is intentionally a core primitive rather than a custom SB3 `VecEnv`; that adapter is the next step if
-training measurements show the native batch materially reduces time-to-success.
+backs a custom SB3 `VecEnv` (`BatchWorldVecEnv`, used by `train_ppo.py --native-vec`) that handles
+per-world auto-reset and truncation. Measured PPO training throughput is ~4.4x a single environment and
+~1.3x SB3's Python-loop `DummyVecEnv`; the batched step removes the environment as a scaling factor, but
+the honest end-to-end gain is bounded because the policy update, not stepping, dominates this small-MLP
+loop (raising lidar beams 16 to 64 barely changed it). The batch matters most when the environment is
+expensive enough to dominate.
 
 ## Realism increments
 
@@ -51,10 +67,15 @@ Each feature is opt-in and has a regression test proving that flags-off behavior
 - sensor noise combines seeded Gaussian noise, dropout, and quantization;
 - actuator limits bound per-step changes in linear and angular velocity;
 - action delay uses a fixed queue of up to two control steps;
-- domain randomization jitters obstacles and adds seeded wheel slip.
+- domain randomization adds seeded wheel slip (and jitters the fixed reference map when random
+  layouts are disabled).
 
+Separately, obstacle layouts are randomized per episode by default (`random_obstacles`, disable with
+`--fixed-obstacles`), so the environment is a distribution of tasks rather than one memorized map.
 The intended experimental workflow is hypothesis, one flagged change, regression test, then a
-training/evaluation comparison over fixed held-out seeds.
+training/evaluation comparison over fixed held-out seeds. Reported success rates (66% on randomized
+layouts, 72% on the fixed map) use default PPO hyperparameters; entropy, learning-rate, and GAE tuning
+or a larger step budget are untapped headroom rather than a ceiling.
 
 ## Unreal bridge boundary
 

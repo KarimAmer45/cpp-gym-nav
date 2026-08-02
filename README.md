@@ -71,6 +71,11 @@ The package registers `CppGymNav-v0`. Its normalized continuous action is `[line
 navigation/body features followed by 16 normalized lidar beams. `terminated` means goal or collision.
 `truncated` means the 300-step budget expired.
 
+If you drive the C++ core directly, note the two backends use different action conventions:
+`_core.World.step` takes **physical-unit** actions (clamped to the speed limits), while
+`_core.BatchWorld.step` takes **normalized** `[-1, 1]` actions and scales them internally. The
+Gymnasium wrapper always presents the normalized interface, so this only matters for direct `_core` use.
+
 ## Architecture
 
 ```text

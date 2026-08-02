@@ -172,6 +172,9 @@ const StepResult &World::step(Action action) {
     angular *= 1.0F + config_.slip_std * normal_(rng_);
   }
 
+  // Semi-implicit (symplectic) Euler: advance the heading first, then translate along the
+  // updated heading. This is standard for unicycle / differential-drive kinematics and more
+  // stable than explicit Euler, which would translate along the stale pre-rotation heading.
   const float next_heading = wrap_angle(pose_.heading + angular * config_.time_step);
   const float next_x = pose_.x + linear * std::cos(next_heading) * config_.time_step;
   const float next_y = pose_.y + linear * std::sin(next_heading) * config_.time_step;
