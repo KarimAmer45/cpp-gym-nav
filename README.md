@@ -15,12 +15,13 @@ Unreal Engine is kept behind a documented backend boundary and remains a stretch
 
 ## Results
 
-On 100 held-out seeds, PPO trained for 200,000 steps reached the goal in **72%** of episodes; a seeded
-random policy reached it in **0%**. PPO's mean return was 14.17 versus -8.25 for random, and it reached
-goals in 94 steps on average versus the random policy's 209. Training took 117 seconds on a CPU-only
-machine. With all four realism features enabled the same recipe still reached 33% success (vs 0% for
-random), and that domain-randomization policy transferred to clean dynamics at 35% — see
-[docs/benchmarks.md](docs/benchmarks.md). The checked-in artifacts are the
+On 100 held-out seeds with randomized obstacle layouts (the default), PPO trained for 200,000 steps
+reached the goal in **66%** of episodes; a seeded random policy reached it in **0%**. On the fixed
+reference map the same recipe reaches **72%** — the small gap (66% vs 72%, with collisions rising from
+14% to 31%) is evidence the policy learned reactive lidar navigation rather than memorizing one layout.
+Training took ~120 seconds on a CPU-only machine. With all four realism features enabled (on the fixed
+map, to isolate noise from layout variation) the recipe still reached 33% success and transferred to
+clean dynamics at 35% — see [docs/benchmarks.md](docs/benchmarks.md). The checked-in artifacts are the
 [learning curve](assets/generated/learning_curve.png) and
 [evaluation data](assets/generated/evaluation.json).
 
@@ -91,7 +92,7 @@ an RL library.
 ## Correctness, safety, and reproducibility
 
 - Gymnasium's checker and Stable-Baselines3's checker run in `pytest` and CI.
-- A seed controls starts, goals, obstacle jitter, lidar noise/dropout, and wheel slip.
+- A seed controls starts, goals, obstacle layouts, lidar noise/dropout, and wheel slip.
 - Non-finite actions become zero and out-of-bounds actions are clamped; `info["action_clipped"]`
   records intervention.
 - Every returned observation is checked for shape, finiteness, dtype, and bounds.
@@ -108,6 +109,7 @@ Use `NavEnvConfig` to enable features independently:
 from cpp_gym_nav import NavEnv, NavEnvConfig
 
 env = NavEnv(config=NavEnvConfig(
+    random_obstacles=True,  # per-episode layouts (default); False = fixed reference map
     sensor_noise=True,
     actuator_limits=True,
     action_delay=True,

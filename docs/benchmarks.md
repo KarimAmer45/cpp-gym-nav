@@ -57,39 +57,47 @@ hear stated up front:
   essentially unchanged. The batched step matters most when the environment is expensive enough to
   dominate the loop.
 
-## PPO versus random
+## PPO versus random, and layout generalization
 
-Command:
+Obstacle layouts are randomized per episode by default; `--fixed-obstacles` uses a single reference map.
+Commands:
 
 ```bash
 python train/train_ppo.py --steps 200000 --eval-episodes 100
+python train/train_ppo.py --fixed-obstacles --steps 200000 --eval-episodes 100 \
+  --output-dir assets/generated/fixed-map
 ```
 
-Both policies used the same 100 held-out episode seeds starting at 105951.
+All policies used the same 100 held-out episode seeds starting at 105951.
 
 | Policy | Success | Collision | Mean return | Mean episode length |
 |---|---:|---:|---:|---:|
-| PPO | **72%** | 14% | **14.17** | 94.48 |
-| Seeded random | 0% | 52% | -8.25 | 209.19 |
+| PPO — randomized layouts (default) | **66%** | 31% | 11.43 | 51.95 |
+| PPO — fixed reference map | 72% | 14% | 14.17 | 94.48 |
+| Seeded random (randomized layouts) | 0% | 47% | -7.67 | 226.33 |
 
-CPU-only training took 117.4 seconds. The original target of 80% held-out success was not reached in
-this fixed 200k-step run, so no train-to-80 time is claimed. The exact JSON, learning curve, and demo
-GIF are checked into `assets/generated`; the model and TensorBoard event files are reproducible but
-git-ignored to keep the repository small.
+Randomizing the obstacle field per episode costs 6 points of success and roughly doubles the collision
+rate, while the seeded random policy solves neither. Keeping two-thirds of its success on layouts it has
+never seen indicates the policy learned reactive lidar navigation rather than memorizing one map. The
+fixed-map run reproduces the earlier result exactly (72% / 14.17 / 94.48), which also validates that
+seeded training is deterministic. The 80% held-out target was not reached in these fixed 200k-step runs,
+so no train-to-80 time is claimed. The exact JSON, learning curves, and demo GIF are checked into
+`assets/generated`; models and TensorBoard event files are reproducible but git-ignored.
 
 ## Robustness under domain randomization
 
 Command:
 
 ```bash
-python train/train_ppo.py --realism --steps 200000 --eval-episodes 100 \
+python train/train_ppo.py --realism --fixed-obstacles --steps 200000 --eval-episodes 100 \
   --output-dir assets/generated/realism
 ```
 
 Enabling all four realism features at once (sensor noise, actuator limits, a one-step action delay, and
-dynamics randomization) makes the task substantially harder. The same PPO recipe still learns, and the
-resulting policy is scored both under the training perturbations and, over the same seeds, on clean
-dynamics.
+dynamics randomization) makes the task substantially harder. This run holds the layout fixed
+(`--fixed-obstacles`) so the numbers isolate the effect of noise from layout variation. The same PPO
+recipe still learns, and the resulting policy is scored both under the training perturbations and, over
+the same seeds, on clean dynamics.
 
 | Policy | Success | Collision | Mean return | Mean episode length |
 |---|---:|---:|---:|---:|
