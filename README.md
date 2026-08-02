@@ -9,7 +9,10 @@ incremental realism.
 
 The MVP includes the C++ simulator, NumPy binding, Gymnasium registration, PPO scripts, reproducible
 benchmarks, RGB rendering, four opt-in realism features, native/Python tests, and cross-platform CI.
-Unreal Engine is kept behind a documented backend boundary and remains a stretch integration.
+The Unreal integration is realized as a swappable socket backend: a versioned protocol and a
+`NavEnvUnreal` env (tested for bit-exact parity against the C++ core) let the same training code drive
+an Unreal process without change — the remaining editor-side scene is documented in
+[docs/unreal.md](docs/unreal.md).
 
 ![PPO agent navigating to the goal](assets/generated/trained_agent.gif)
 
@@ -86,8 +89,9 @@ Gymnasium NavEnv (contract, validation, render, time limit)
 pybind11 / NumPy (GIL released during C++ compute)
         |
 C++17 World (kinematics, collision, raycast lidar, seeded RNG)
-        |
-future Unreal backend with the same normalized reset/step schema
+
+  ── or, over a versioned TCP socket (same normalized reset/step schema) ──
+NavEnvUnreal → reference backend (C++ core today; an Unreal process tomorrow)
 ```
 
 The core uses fixed-size obstacle and delay buffers and preallocates its observations. The binding
@@ -152,14 +156,34 @@ Training writes the model, evaluation JSON, TensorBoard logs, learning curve, an
 GIF under `assets/generated/`. Report success rate over held-out seeds; do not treat training return
 alone as evidence of solving the task.
 
+## Unreal bridge
+
+`NavEnvUnreal` implements the identical Gymnasium contract over a versioned TCP protocol, so the same
+training code drives a swappable backend. A reference server backed by the C++ core makes it
+self-contained and testable (bit-exact parity with the in-process env, `check_env` green):
+
+```bash
+python -m cpp_gym_nav.backend_server --port 8917   # or NavEnvUnreal() auto-launches it in-process
+```
+
+```python
+import gymnasium as gym, cpp_gym_nav
+
+env = gym.make(cpp_gym_nav.UNREAL_ENV_ID)  # same PPO/eval code, backend over a socket
+```
+
+Swap the reference server for an Unreal Engine process answering the same protocol and nothing on the
+Python side changes. Protocol spec and a UE5 C++ integration stub: [docs/unreal.md](docs/unreal.md).
+
 ## Repository map
 
 - `cpp/include/nav` and `cpp/src`: simulator core
 - `bindings`: pybind11/NumPy boundary
-- `python/cpp_gym_nav`: Gymnasium environment and registration
+- `python/cpp_gym_nav`: Gymnasium env, registration, native `VecEnv`, and the socket bridge
+  (`nav_env_unreal.py`, `backend_server.py`)
 - `tests` and `cpp/tests`: contract, regression, and core tests
 - `train`: PPO, evaluation/GIF, and benchmark scripts
-- `docs/design.md`: trade-offs, safety, optimization, and Unreal bridge plan
+- `docs/design.md` and `docs/unreal.md`: trade-offs/safety and the Unreal bridge protocol + stub
 - `.github/workflows/ci.yml`: Linux/Windows build and test matrix
 
 ## Development

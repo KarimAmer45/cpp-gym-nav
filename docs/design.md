@@ -79,7 +79,12 @@ or a larger step budget are untapped headroom rather than a ceiling.
 
 ## Unreal bridge boundary
 
-An Unreal implementation should expose reset state, action stepping, observation, terminal reason,
-and render frames using the same normalized schema. The first integration should use a versioned
-message format and deterministic tick control. Shared memory can replace sockets only after measuring
-that transport is significant. Unreal is intentionally not vendored into this MVP.
+The bridge is implemented as a versioned, newline-delimited JSON protocol over TCP. `NavEnvUnreal`
+satisfies the identical Gymnasium contract over the socket, and a reference server backed by the C++
+core answers the protocol, so the same PPO/`check_env` code runs unchanged against a networked backend.
+Tests assert bit-exact parity between the socket path and the in-process env, which is the guarantee a
+real backend must preserve. An Unreal process becomes a drop-in replacement by answering the same
+protocol — exposing reset, action stepping, observation, and terminal reason under the same normalized
+schema with deterministic tick control. Shared memory can replace the socket only after measuring that
+transport is a significant cost. Unreal itself is intentionally not vendored; the protocol and a UE5
+C++ integration stub live in [unreal.md](unreal.md).
