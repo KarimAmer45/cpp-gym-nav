@@ -165,6 +165,108 @@ python train/evaluate.py assets/generated/ppo_nav.zip   # after pointing evaluat
 A short clip of the UE scene being stepped from the unchanged Gymnasium/PPO loop
 is the headline artifact — the same policy that solves the C++ env driving Unreal.
 
+## Renderer mode (UE visualizes the C++ backend) — recommended first step
+
+This is the spec's time-boxed first step: keep the proven C++ core as the
+physics/RL backend and use Unreal purely to render. `train/stream_unreal.py` runs
+the trained policy against `NavEnv` and streams world state to a UE process that
+moves matching actors. It is a one-way protocol (Python -> UE), newline-delimited
+JSON; the Python side listens and Unreal connects out on Play:
+
+```text
+{"type":"config","arena_half_extent":5.0,"robot_radius":0.22,"goal_radius":0.35}
+{"type":"reset","goal":[x,y],"obstacles":[[x,y,r], ...]}
+{"type":"step","robot":[x,y,heading],"success":false,"collision":false}
+{"type":"done"}
+```
+
+Coordinate mapping (2-D sim metres -> Unreal centimetres): `UE.X = x * 100`,
+`UE.Y = y * 100`, `Yaw = heading * 180/pi`. Obstacle/goal meshes are scaled from
+their radii, and a small constant `Z` lifts them off the floor.
+
+This path is **verified on UE 5.8.1** (Windows, RTX 3080): the same PPO policy trained
+against the C++ core drives the Unreal scene below.
+
+![PPO policy driving the Unreal renderer](../assets/generated/unreal_demo.gif)
+
+**Two gotchas worth flagging up front:** (1) set the robot/goal/obstacle actors to
+**Mobility = Movable** — Unreal silently refuses `SetActorLocation` on Static actors and
+spams a mobility warning every tick; (2) record with **Simulate** (Alt+S) piloting a
+**Cine Camera Actor** for a fixed vantage — **Play** views through a spawned player camera
+and ignores your framed editor viewport.
+
+### Illustrative UE5 receiver actor
+
+Add the `Sockets`, `Networking`, and `Json` modules to your `*.Build.cs`. Place one
+`ANavRenderBridge` in the level and assign the robot/goal actors and an obstacle
+mesh class in the details panel. Illustrative (not a drop-in compilable file):
+
+```cpp
+UCLASS()
+class ANavRenderBridge : public AActor {
+    GENERATED_BODY()
+public:
+    UPROPERTY(EditAnywhere) AActor* Robot;      // e.g. a sphere/cylinder
+    UPROPERTY(EditAnywhere) AActor* Goal;        // e.g. a translucent sphere
+    UPROPERTY(EditAnywhere) TArray<AActor*> Obstacles;  // five cylinders, assigned in-editor
+
+    virtual void BeginPlay() override {          // connect out to the Python streamer
+        Super::BeginPlay();
+        Socket = FTcpSocketBuilder(TEXT("NavStream")).AsBlocking();
+        FIPv4Address::Parse(TEXT("127.0.0.1"), Addr);
+        FInternetAddrPtr Dest = ISocketSubsystem::Get()->CreateInternetAddr();
+        Dest->SetIp(Addr.Value); Dest->SetPort(8920);
+        Socket->Connect(*Dest);
+    }
+    virtual void Tick(float Dt) override {        // drain complete JSON lines, apply the latest
+        Super::Tick(Dt);
+        for (const FString& Line : ReadLines(Socket)) Apply(Line);
+    }
+private:
+    void Apply(const FString& Line) {
+        TSharedPtr<FJsonObject> M;
+        FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Line), M);
+        const FString Type = M->GetStringField(TEXT("type"));
+        if (Type == TEXT("reset")) {
+            const auto& G = M->GetArrayField(TEXT("goal"));
+            Goal->SetActorLocation(ToUE(G[0]->AsNumber(), G[1]->AsNumber()));
+            const auto& Obs = M->GetArrayField(TEXT("obstacles"));
+            for (int32 i = 0; i < Obstacles.Num() && i < Obs.Num(); ++i) {
+                const auto& O = Obs[i]->AsArray();
+                Obstacles[i]->SetActorLocation(ToUE(O[0]->AsNumber(), O[1]->AsNumber()));
+            }
+        } else if (Type == TEXT("step")) {
+            const auto& R = M->GetArrayField(TEXT("robot"));
+            Robot->SetActorLocation(ToUE(R[0]->AsNumber(), R[1]->AsNumber()));
+            Robot->SetActorRotation(FRotator(0, FMath::RadiansToDegrees(R[2]->AsNumber()), 0));
+        }
+    }
+    FVector ToUE(double x, double y) const { return FVector(x * 100.0, y * 100.0, 0.0); }
+    FSocket* Socket = nullptr; FIPv4Address Addr;
+};
+```
+
+### Editor steps
+
+1. Epic Games Launcher -> Unreal Engine -> install 5.8.x (large download + first-launch
+   shader compile). Install Visual Studio 2022 with the "Game development with C++" workload.
+2. New project -> Games -> **Blank**, **C++**, name it `NavViz`; let it build and open.
+3. New **Basic** level, saved as `NavViz_Map`. Add the visuals and **name them exactly**:
+   a sphere `Robot` (scale ~0.44), a sphere `Goal` (scale ~0.7), and five cylinders
+   `Obstacle0`..`Obstacle4`. Select all seven and set **Mobility = Movable** (required —
+   Static actors cannot be moved at runtime).
+4. Add the `ANavRenderBridge` C++ class (Tools -> New C++ Class -> Actor), paste the
+   receiver, add `Sockets`/`Networking`/`Json` to `NavViz.Build.cs`, and do a **full Build**
+   (adding modules needs a rebuild, not Live Coding).
+5. Drop one `ANavRenderBridge` in the level; in its Details assign **Robot**, **Goal**, and
+   the five cylinders to the **Obstacles** array.
+6. Add a **Cine Camera Actor** looking down at the origin (e.g. Location `(-450, 0, 650)`,
+   Rotation `Pitch -45`, `Roll 0`), and **Pilot** it for a fixed vantage.
+7. Run `python train/stream_unreal.py assets/generated/ppo_nav.zip --episodes 10 --fps 6`
+   (it waits), then press **Alt+S (Simulate)** — the robot drives as the policy commands.
+8. Screen-record the viewport (**G** toggles Game View to hide gizmos). That clip — the same
+   PPO loop that solves the C++ env driving an Unreal scene — is the headline artifact.
+
 ## Prior art referenced
 
 - **Schola** (Unreal 5 RL plugin) and **Unreal ML Agents** — plugin-based bridges

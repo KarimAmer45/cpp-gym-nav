@@ -175,6 +175,19 @@ env = gym.make(cpp_gym_nav.UNREAL_ENV_ID)  # same PPO/eval code, backend over a 
 Swap the reference server for an Unreal Engine process answering the same protocol and nothing on the
 Python side changes. Protocol spec and a UE5 C++ integration stub: [docs/unreal.md](docs/unreal.md).
 
+### Unreal renderer
+
+The complementary "UE as renderer" path keeps physics and RL in the proven C++ core and uses Unreal
+only to visualize. `train/stream_unreal.py` runs the trained policy and streams world state (robot
+pose, goal, obstacles) over the newline-delimited JSON/TCP protocol to a UE5 scene whose
+`ANavRenderBridge` actor moves matching actors each tick. The same PPO policy trained against the C++
+environment drives the Unreal scene through a fixed camera:
+
+![PPO policy driving the Unreal renderer](assets/generated/unreal_demo.gif)
+
+The bridge actor, coordinate mapping (sim metres to UE centimetres), and editor setup are documented
+in [docs/unreal.md](docs/unreal.md).
+
 ## Repository map
 
 - `cpp/include/nav` and `cpp/src`: simulator core
