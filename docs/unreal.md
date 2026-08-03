@@ -185,7 +185,9 @@ Coordinate mapping (2-D sim metres -> Unreal centimetres): `UE.X = x * 100`,
 their radii, and a small constant `Z` lifts them off the floor.
 
 This path is **verified on UE 5.8.1** (Windows, RTX 3080): the same PPO policy trained
-against the C++ core drives the Unreal scene below.
+against the C++ core drives the Unreal scene below. The complete working project — the
+`ANavRenderBridge` actor and the scene — is version-controlled at
+[navviz-unreal](https://github.com/KarimAmer45/navviz-unreal).
 
 ![PPO policy driving the Unreal renderer](../assets/generated/unreal_demo.gif)
 

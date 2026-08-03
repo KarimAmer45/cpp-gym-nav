@@ -15,6 +15,7 @@ runs/
 models/
 assets/generated/**/tensorboard/
 assets/generated/**/*.zip
+demo/
 benchmark-results.json
 benchmark-results.md
 .zig-cache/

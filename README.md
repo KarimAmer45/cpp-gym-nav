@@ -186,7 +186,8 @@ environment drives the Unreal scene through a fixed camera:
 ![PPO policy driving the Unreal renderer](assets/generated/unreal_demo.gif)
 
 The bridge actor, coordinate mapping (sim metres to UE centimetres), and editor setup are documented
-in [docs/unreal.md](docs/unreal.md).
+in [docs/unreal.md](docs/unreal.md); the full UE 5.8 project lives at
+[navviz-unreal](https://github.com/KarimAmer45/navviz-unreal).
 
 ## Repository map
 
