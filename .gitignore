@@ -19,3 +19,4 @@ demo/
 benchmark-results.json
 benchmark-results.md
 .zig-cache/
+.claude/
